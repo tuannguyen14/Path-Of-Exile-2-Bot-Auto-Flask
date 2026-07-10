@@ -1,4 +1,4 @@
-# PoE2 Bot — Auto Flask Manager
+# PoE2 0.5.4 Bot — Auto Flask Manager
 
 Automatically triggers HP/Mana flasks in Path of Exile 2 by reading HP/Mana/ES values directly from game memory.
 
