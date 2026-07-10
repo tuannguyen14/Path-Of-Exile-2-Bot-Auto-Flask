@@ -1,0 +1,4 @@
+pymem>=1.10
+keyboard>=0.13.5
+pygame>=2.5.0
+vgamepad>=0.1.0
