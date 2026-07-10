@@ -20,7 +20,7 @@ class Launcher:
         self.root.title("PoE2 Bot — Launcher")
         self.root.configure(bg=self.BG)
         self.root.resizable(False, False)
-        self.root.geometry("340x280")
+        self.root.geometry("340x340")
         self.root.eval("tk::PlaceWindow . center")
 
         self.choice: str | None = None
