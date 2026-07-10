@@ -2,6 +2,8 @@
 
 Automatically triggers HP/Mana flasks in Path of Exile 2 by reading HP/Mana/ES values directly from game memory.
 
+**Author:** [tuannguyen14](https://github.com/tuannguyen14)
+
 ## Project Structure
 
 ```

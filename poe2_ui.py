@@ -6,23 +6,27 @@ import poe2_core as core
 
 
 class Poe2GUI:
-    BG         = "#1a1a2e"
+    BG         = "#0f0f1e"
     PANEL      = "#16213e"
     ACCENT     = "#0f3460"
     TEXT       = "#e0e0e0"
     GREEN      = "#00e676"
+    GREEN_H    = "#00c853"
     RED        = "#ff5252"
+    RED_H      = "#d32f2f"
     BLUE       = "#448aff"
     ORANGE     = "#ffab40"
     GREY       = "#546e7a"
+    DARK       = "#0d1117"
 
     def __init__(self, mem: core.MemoryReader | None = None):
         self.root = tk.Tk()
-        self.root.title("PoE2 Bot")
+        self.root.title("PoE2 Bot — Auto Flask Manager")
         self.root.configure(bg=self.BG)
         self.root.resizable(True, True)
-        self.root.geometry("420x620")
-        self.root.minsize(380, 560)
+        self.root.geometry("440x680")
+        self.root.minsize(400, 600)
+        self.root.eval("tk::PlaceWindow . center")
 
         self.mem: core.MemoryReader | None = mem
         self.auto: core.AutoManager | None = None
@@ -38,64 +42,83 @@ class Poe2GUI:
 
     # ── Build UI ─────────────────────────────────────────────
 
+    def _sep(self, parent, padx=16):
+        tk.Frame(parent, bg=self.ACCENT, height=1).pack(fill="x", padx=padx, pady=2)
+
     def _build_ui(self):
         root = self.root
-        pad = {"padx": 12}
+        pad = {"padx": 14}
 
-        # ── Title ──
-        tk.Label(root, text="Path of Exile 2 — Bot",
-                 bg=self.BG, fg=self.TEXT,
-                 font=("Segoe UI", 16, "bold")).pack(pady=(14, 2))
-        tk.Label(root, text="Auto Flask Manager",
-                 bg=self.BG, fg=self.GREY,
-                 font=("Segoe UI", 9)).pack(pady=(0, 8))
+        # ── Header ──
+        header = tk.Frame(root, bg=self.BG)
+        header.pack(fill="x", pady=(12, 0))
+        tk.Label(header, text="⚔  PoE2 Bot", bg=self.BG, fg=self.TEXT,
+                 font=("Segoe UI", 16, "bold")).pack(side="left", padx=(14, 0))
+        tk.Label(header, text="v1.1", bg=self.BG, fg=self.ACCENT,
+                 font=("Segoe UI", 7)).pack(side="left", padx=(4, 0), pady=(6, 0))
 
         # ── Status panel ──
         panel = tk.Frame(root, bg=self.PANEL, relief="flat", bd=1)
-        panel.pack(fill="x", **pad, pady=4)
+        panel.pack(fill="x", **pad, pady=(8, 4))
 
-        # Connection status
-        self.lbl_status = tk.Label(panel, text="● Connecting...",
+        # Connection status + Auto status
+        status_row = tk.Frame(panel, bg=self.PANEL)
+        status_row.pack(fill="x", padx=12, pady=(8, 4))
+
+        self.lbl_status = tk.Label(status_row, text="● Connecting...",
                                    bg=self.PANEL, fg=self.ORANGE,
-                                   font=("Consolas", 10, "bold"))
-        self.lbl_status.pack(anchor="w", padx=12, pady=(8, 4))
+                                   font=("Consolas", 9, "bold"))
+        self.lbl_status.pack(side="left")
+
+        self.lbl_auto = tk.Label(status_row, text="Auto: OFF",
+                                 bg=self.PANEL, fg=self.GREY,
+                                 font=("Consolas", 9, "bold"))
+        self.lbl_auto.pack(side="right")
+
+        self._sep(panel, padx=12)
 
         # HP bar
-        tk.Label(panel, text="HP", bg=self.PANEL, fg=self.TEXT,
-                 font=("Segoe UI", 9, "bold"), width=4).pack(anchor="w", padx=12)
+        hp_row = tk.Frame(panel, bg=self.PANEL)
+        hp_row.pack(fill="x", padx=12, pady=(4, 0))
+        tk.Label(hp_row, text="❤ HP", bg=self.PANEL, fg=self.RED,
+                 font=("Segoe UI", 9, "bold"), width=6).pack(side="left")
+        self.hp_val = tk.Label(hp_row, text="0 / 0", bg=self.PANEL, fg=self.TEXT,
+                               font=("Consolas", 8))
+        self.hp_val.pack(side="right")
         self.hp_bar = self._make_bar(panel, self.RED)
-        self.hp_val = tk.Label(panel, text="0 / 0", bg=self.PANEL, fg=self.TEXT,
-                               font=("Consolas", 9))
-        self.hp_val.pack(anchor="w", padx=12, pady=(0, 4))
 
         # Mana bar
-        tk.Label(panel, text="Mana", bg=self.PANEL, fg=self.TEXT,
-                 font=("Segoe UI", 9, "bold"), width=4).pack(anchor="w", padx=12)
+        mana_row = tk.Frame(panel, bg=self.PANEL)
+        mana_row.pack(fill="x", padx=12, pady=(6, 0))
+        tk.Label(mana_row, text="🔷 Mana", bg=self.PANEL, fg=self.BLUE,
+                 font=("Segoe UI", 9, "bold"), width=6).pack(side="left")
+        self.mana_val = tk.Label(mana_row, text="0 / 0", bg=self.PANEL, fg=self.TEXT,
+                                 font=("Consolas", 8))
+        self.mana_val.pack(side="right")
         self.mana_bar = self._make_bar(panel, self.BLUE)
-        self.mana_val = tk.Label(panel, text="0 / 0", bg=self.PANEL, fg=self.TEXT,
-                                 font=("Consolas", 9))
-        self.mana_val.pack(anchor="w", padx=12, pady=(0, 4))
 
         # ES bar
-        tk.Label(panel, text="ES", bg=self.PANEL, fg=self.TEXT,
-                 font=("Segoe UI", 9, "bold"), width=4).pack(anchor="w", padx=12)
+        es_row = tk.Frame(panel, bg=self.PANEL)
+        es_row.pack(fill="x", padx=12, pady=(6, 8))
+        tk.Label(es_row, text="🛡 ES", bg=self.PANEL, fg=self.GREY,
+                 font=("Segoe UI", 9, "bold"), width=6).pack(side="left")
+        self.es_val = tk.Label(es_row, text="0 / 0", bg=self.PANEL, fg=self.TEXT,
+                               font=("Consolas", 8))
+        self.es_val.pack(side="right")
         self.es_bar = self._make_bar(panel, self.GREY)
-        self.es_val = tk.Label(panel, text="0 / 0", bg=self.PANEL, fg=self.TEXT,
-                               font=("Consolas", 9))
-        self.es_val.pack(anchor="w", padx=12, pady=(0, 8))
 
         # ── Toggle button ──
         self.btn_toggle = tk.Button(root, text="▶  START AUTO",
                                     bg=self.GREEN, fg="#000",
                                     font=("Segoe UI", 12, "bold"),
-                                    relief="flat", cursor="hand2",
-                                    activebackground="#00c853",
+                                    relief="flat", cursor="hand2", bd=0,
+                                    activebackground=self.GREEN_H,
                                     command=self._on_toggle)
-        self.btn_toggle.pack(fill="x", **pad, pady=(8, 4))
-        self.btn_toggle.config(height=2)
+        self.btn_toggle.pack(fill="x", **pad, pady=(8, 4), ipady=8)
+        self._add_hover(self.btn_toggle, self.GREEN, self.GREEN_H, "#000", "#000")
 
         # ── Config panel ──
-        cfg = tk.LabelFrame(root, text="Settings", bg=self.PANEL, fg=self.TEXT,
+        cfg = tk.LabelFrame(root, text="⚙  Settings", bg=self.PANEL, fg=self.TEXT,
                             font=("Segoe UI", 9, "bold"), relief="flat", bd=1)
         cfg.pack(fill="x", **pad, pady=4)
 
@@ -106,22 +129,36 @@ class Poe2GUI:
 
         # ── Log ──
         log_frame = tk.Frame(root, bg=self.PANEL, relief="flat", bd=1)
-        log_frame.pack(fill="both", expand=True, **pad, pady=(4, 12))
+        log_frame.pack(fill="both", expand=True, **pad, pady=(4, 8))
 
-        tk.Label(log_frame, text="Log", bg=self.PANEL, fg=self.GREY,
-                 font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=8, pady=(4, 0))
+        log_header = tk.Frame(log_frame, bg=self.PANEL)
+        log_header.pack(fill="x", padx=8, pady=(4, 0))
+        tk.Label(log_header, text="📜 Log", bg=self.PANEL, fg=self.GREY,
+                 font=("Segoe UI", 8, "bold")).pack(side="left")
+        self.lbl_log_count = tk.Label(log_header, text="0 events", bg=self.PANEL, fg=self.GREY,
+                                      font=("Segoe UI", 7))
+        self.lbl_log_count.pack(side="right")
 
-        self.log_text = tk.Text(log_frame, bg="#0d1117", fg=self.TEXT,
+        self.log_text = tk.Text(log_frame, bg=self.DARK, fg=self.TEXT,
                                 font=("Consolas", 8), relief="flat",
-                                height=6, state="disabled", wrap="word")
+                                height=7, state="disabled", wrap="word",
+                                borderwidth=0)
         self.log_text.pack(fill="both", expand=True, padx=8, pady=(2, 8))
 
         # ── Footer ──
-        tk.Label(root, text="Ctrl+C to quit", bg=self.BG, fg=self.GREY,
+        self._sep(root, padx=14)
+        tk.Label(root, text="github.com/tuannguyen14", bg=self.BG, fg=self.ACCENT,
+                 font=("Segoe UI", 7, "bold")).pack(side="bottom", pady=(2, 2))
+        tk.Label(root, text="Close window to quit  •  For educational purposes only",
+                 bg=self.BG, fg=self.GREY,
                  font=("Segoe UI", 7)).pack(side="bottom", pady=(0, 6))
 
+    def _add_hover(self, btn, normal_bg, hover_bg, normal_fg="#fff", hover_fg="#fff"):
+        btn.bind("<Enter>", lambda e: btn.config(bg=hover_bg, fg=hover_fg))
+        btn.bind("<Leave>", lambda e: btn.config(bg=normal_bg, fg=normal_fg))
+
     def _make_bar(self, parent, color) -> tk.Canvas:
-        bar = tk.Canvas(parent, bg=self.PANEL, height=18, highlightthickness=0)
+        bar = tk.Canvas(parent, bg=self.PANEL, height=20, highlightthickness=0)
         bar.pack(fill="x", padx=12, pady=(2, 0))
         bar._color = color
         bar._pct = 0
@@ -132,10 +169,13 @@ class Poe2GUI:
         w = bar.winfo_width()
         h = bar.winfo_height()
         bar.delete("all")
-        bar.create_rectangle(0, 0, w, h, fill="#263238", outline="")
+        # Background track
+        bar.create_rectangle(0, 0, w, h, fill="#1e272e", outline="")
+        # Fill
         fill_w = int(w * bar._pct)
-        if fill_w > 0:
-            bar.create_rectangle(0, 0, fill_w, h, fill=bar._color, outline="")
+        if fill_w > 2:
+            bar.create_rectangle(1, 1, fill_w, h - 1, fill=bar._color, outline="")
+        # Percentage text
         pct_txt = f"{bar._pct:.0%}"
         bar.create_text(w // 2, h // 2, text=pct_txt,
                         fill="#fff", font=("Consolas", 8, "bold"))
@@ -144,18 +184,31 @@ class Poe2GUI:
         row = tk.Frame(parent, bg=self.PANEL)
         row.pack(fill="x", padx=12, pady=4)
 
-        tk.Label(row, text=label, bg=self.PANEL, fg=self.TEXT,
-                 font=("Segoe UI", 8), width=14, anchor="w").pack(side="left")
+        info = tk.Frame(row, bg=self.PANEL)
+        info.pack(fill="x")
+        tk.Label(info, text=label, bg=self.PANEL, fg=self.TEXT,
+                 font=("Segoe UI", 8), anchor="w").pack(side="left")
+        val_lbl = tk.Label(info, text=f"{init_val:.0%}", bg=self.PANEL, fg=self.ORANGE,
+                          font=("Consolas", 8, "bold"))
+        val_lbl.pack(side="right")
 
         var = tk.DoubleVar(value=init_val)
         slider = tk.Scale(row, from_=lo, to=hi, resolution=0.05,
                           orient="horizontal", variable=var,
                           bg=self.PANEL, fg=self.TEXT,
-                          font=("Consolas", 7), length=150,
+                          font=("Consolas", 7), length=200,
                           highlightthickness=0, relief="flat",
-                          command=callback, sliderlength=12,
-                          troughcolor="#263238")
-        slider.pack(side="left", padx=(4, 0))
+                          command=callback, sliderlength=14,
+                          troughcolor="#1e272e")
+        slider.pack(fill="x", pady=(0, 2))
+        slider._val_lbl = val_lbl
+        slider._callback = callback
+        slider._orig_callback = callback
+        # Wrap callback to update value label
+        def _wrapped(val, _cb=callback, _lbl=val_lbl):
+            _cb(val)
+            _lbl.config(text=f"{float(val):.0%}")
+        slider.config(command=_wrapped)
 
     # ── Callbacks ────────────────────────────────────────────
 
@@ -164,10 +217,16 @@ class Poe2GUI:
             self.auto.toggle()
             if self.auto.is_running:
                 self.btn_toggle.config(text="⏸  STOP AUTO", bg=self.RED,
-                                       activebackground="#d32f2f")
+                                       activebackground=self.RED_H)
+                self._add_hover(self.btn_toggle, self.RED, self.RED_H, "#000", "#000")
+                self.lbl_auto.config(text="Auto: ON", fg=self.GREEN)
+                self._log("Auto flask started")
             else:
                 self.btn_toggle.config(text="▶  START AUTO", bg=self.GREEN,
-                                       activebackground="#00c853")
+                                       activebackground=self.GREEN_H)
+                self._add_hover(self.btn_toggle, self.GREEN, self.GREEN_H, "#000", "#000")
+                self.lbl_auto.config(text="Auto: OFF", fg=self.GREY)
+                self._log("Auto flask stopped")
 
     def _on_hp_thresh(self, val):
         core.HP_FLASK_THRESHOLD = float(val)
@@ -253,6 +312,8 @@ class Poe2GUI:
         if len(self._log_lines) > 50:
             self._log_lines.pop(0)
 
+        self.lbl_log_count.config(text=f"{len(self._log_lines)} events")
+
         self.log_text.config(state="normal")
         self.log_text.delete("1.0", "end")
         self.log_text.insert("1.0", "\n".join(self._log_lines[-20:]))
@@ -275,11 +336,3 @@ class Poe2GUI:
         if self.auto:
             self.auto.stop()
         self.root.destroy()
-
-
-def launch(auto_manager: core.AutoManager | None = None):
-    """Launch GUI. If auto_manager is provided, binds it for toggle/control."""
-    gui = Poe2GUI()
-    if auto_manager:
-        gui.set_auto_manager(auto_manager)
-    gui.run()
