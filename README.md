@@ -14,6 +14,10 @@ poe2_ui.py            Tkinter GUI: real-time HP/Mana/ES bars, toggle, sliders, l
 └── bot_controller.py Controller mode — flasks via virtual gamepad (DPAD)
 ```
 
+<img width="379" height="455" alt="image" src="https://github.com/user-attachments/assets/4617a9cd-d49f-468c-af1f-ec2c154b30fc" />
+
+<img width="438" height="678" alt="image" src="https://github.com/user-attachments/assets/c9219d92-2222-4889-9ce1-195f470f1dd7" />
+
 ## Requirements
 
 ```
