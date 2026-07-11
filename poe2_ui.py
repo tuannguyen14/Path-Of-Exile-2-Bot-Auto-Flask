@@ -1,8 +1,12 @@
 import tkinter as tk
 import threading
 import time
+import json
+import os
 
 import poe2_core as core
+
+SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 
 
 class Poe2GUI:
@@ -33,7 +37,10 @@ class Poe2GUI:
         self._stats = {"hp": 0, "max_hp": 0, "mana": 0, "max_mana": 0, "es": 0, "max_es": 0}
         self._log_lines: list[str] = []
         self._running = False
+        self._last_toggle_state: bool | None = None
+        self.hotkey_enabled = tk.BooleanVar(value=True)
 
+        self._load_settings()
         self._build_ui()
         if self.mem:
             self._on_connected()
@@ -127,6 +134,15 @@ class Poe2GUI:
         self._build_slider(cfg, "Mana Threshold", core.MANA_FLASK_THRESHOLD, 0.05, 0.90,
                            self._on_mana_thresh)
 
+        chk_hotkey = tk.Checkbutton(cfg, text="Enable hotkey toggle (Home / LB)",
+                                    variable=self.hotkey_enabled,
+                                    bg=self.PANEL, fg=self.TEXT,
+                                    selectcolor=self.ACCENT,
+                                    activebackground=self.PANEL, activeforeground=self.TEXT,
+                                    font=("Segoe UI", 8),
+                                    command=self._on_hotkey_toggle)
+        chk_hotkey.pack(anchor="w", padx=12, pady=(4, 8))
+
         # ── Log ──
         log_frame = tk.Frame(root, bg=self.PANEL, relief="flat", bd=1)
         log_frame.pack(fill="both", expand=True, **pad, pady=(4, 8))
@@ -212,27 +228,70 @@ class Poe2GUI:
 
     # ── Callbacks ────────────────────────────────────────────
 
+    _toggle_debounce = 0
+
     def _on_toggle(self):
+        now = int(time.time() * 1000)
+        if now - self._toggle_debounce < 500:
+            return
+        self._toggle_debounce = now
         if self.auto:
             self.auto.toggle()
-            if self.auto.is_running:
-                self.btn_toggle.config(text="⏸  STOP AUTO", bg=self.RED,
-                                       activebackground=self.RED_H)
-                self._add_hover(self.btn_toggle, self.RED, self.RED_H, "#000", "#000")
-                self.lbl_auto.config(text="Auto: ON", fg=self.GREEN)
+            self._sync_toggle_ui()
+
+    def _sync_toggle_ui(self, log: bool = True):
+        if not self.auto:
+            return
+        running = self.auto.is_running
+        if running == self._last_toggle_state:
+            return
+        self._last_toggle_state = running
+        if running:
+            self.btn_toggle.config(text="⏸  STOP AUTO", bg=self.RED,
+                                   activebackground=self.RED_H)
+            self._add_hover(self.btn_toggle, self.RED, self.RED_H, "#000", "#000")
+            self.lbl_auto.config(text="Auto: ON", fg=self.GREEN)
+            if log:
                 self._log("Auto flask started")
-            else:
-                self.btn_toggle.config(text="▶  START AUTO", bg=self.GREEN,
-                                       activebackground=self.GREEN_H)
-                self._add_hover(self.btn_toggle, self.GREEN, self.GREEN_H, "#000", "#000")
-                self.lbl_auto.config(text="Auto: OFF", fg=self.GREY)
+        else:
+            self.btn_toggle.config(text="▶  START AUTO", bg=self.GREEN,
+                                   activebackground=self.GREEN_H)
+            self._add_hover(self.btn_toggle, self.GREEN, self.GREEN_H, "#000", "#000")
+            self.lbl_auto.config(text="Auto: OFF", fg=self.GREY)
+            if log:
                 self._log("Auto flask stopped")
 
     def _on_hp_thresh(self, val):
         core.HP_FLASK_THRESHOLD = float(val)
+        self._save_settings()
 
     def _on_mana_thresh(self, val):
         core.MANA_FLASK_THRESHOLD = float(val)
+        self._save_settings()
+
+    def _on_hotkey_toggle(self):
+        self._save_settings()
+
+    def _load_settings(self):
+        try:
+            with open(SETTINGS_FILE, "r") as f:
+                data = json.load(f)
+            core.HP_FLASK_THRESHOLD = data.get("hp_threshold", core.HP_FLASK_THRESHOLD)
+            core.MANA_FLASK_THRESHOLD = data.get("mana_threshold", core.MANA_FLASK_THRESHOLD)
+            self.hotkey_enabled.set(data.get("hotkey_enabled", True))
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    def _save_settings(self):
+        try:
+            with open(SETTINGS_FILE, "w") as f:
+                json.dump({
+                    "hp_threshold": core.HP_FLASK_THRESHOLD,
+                    "mana_threshold": core.MANA_FLASK_THRESHOLD,
+                    "hotkey_enabled": bool(self.hotkey_enabled.get()),
+                }, f)
+        except Exception:
+            pass
 
     # ── Connection ───────────────────────────────────────────
 
@@ -292,7 +351,7 @@ class Poe2GUI:
         # Mana
         mana_pct = s["mana"] / s["max_mana"] if s["max_mana"] > 0 else 0
         self.mana_bar._pct = mana_pct
-        self.mana_bar._color = self.BLUE if mana_pct >= core.MANA_FLASK_THRESHOLD else self.ORANGE
+        self.mana_bar._color = self.RED if mana_pct < core.MANA_EMERGENCY_THRESHOLD else self.BLUE if mana_pct >= core.MANA_FLASK_THRESHOLD else self.ORANGE
         self._draw_bar(self.mana_bar)
         self.mana_val.config(text=f"{s['mana']} / {s['max_mana']}")
 
@@ -324,6 +383,7 @@ class Poe2GUI:
 
     def set_auto_manager(self, auto: core.AutoManager):
         self.auto = auto
+        auto._on_fire = lambda label: self.root.after(0, lambda: self._log(label))
 
     # ── Run ──────────────────────────────────────────────────
 
@@ -333,6 +393,7 @@ class Poe2GUI:
 
     def _on_close(self):
         self._running = False
+        self._save_settings()
         if self.auto:
             self.auto.stop()
         self.root.destroy()

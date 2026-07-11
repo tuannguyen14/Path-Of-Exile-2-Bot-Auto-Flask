@@ -155,7 +155,7 @@ def main():
         print(f"   GUI: ON  (close window to quit)")
     print("─" * 40)
 
-    hp_mana_auto.start()
+    _alive = [True]
 
     def _controller_loop():
         nonlocal btn_hp_held
@@ -163,8 +163,10 @@ def main():
             pygame.event.pump()
 
             lb = real_ctrl.get_button(BTN_TOGGLE_HP_AUTO)
-            if lb and not btn_hp_held:
+            if lb and not btn_hp_held and (not use_gui or gui.hotkey_enabled.get()):
                 hp_mana_auto.toggle()
+                if use_gui:
+                    gui.root.after(0, gui._sync_toggle_ui)
                 btn_hp_held = True
             elif not lb:
                 btn_hp_held = False
@@ -174,26 +176,28 @@ def main():
 
             time.sleep(0.05)
 
-    _alive = [True]
-
     if use_gui:
         import poe2_ui
+
+        gui = poe2_ui.Poe2GUI(mem=mem)
+        gui.set_auto_manager(hp_mana_auto)
 
         def _on_gui_close():
             _alive[0] = False
             hp_mana_auto.stop()
+            gui._save_settings()
             pygame.quit()
             gui.root.destroy()
+
+        gui._on_close = _on_gui_close
+        gui.root.protocol("WM_DELETE_WINDOW", _on_gui_close)
 
         ctrl_thread = threading.Thread(target=_controller_loop, daemon=True)
         ctrl_thread.start()
 
-        gui = poe2_ui.Poe2GUI(mem=mem)
-        gui.set_auto_manager(hp_mana_auto)
-        gui._on_close = _on_gui_close
-        gui.root.protocol("WM_DELETE_WINDOW", _on_gui_close)
         gui.run()
     else:
+        hp_mana_auto.start()
         try:
             _controller_loop()
         except KeyboardInterrupt:

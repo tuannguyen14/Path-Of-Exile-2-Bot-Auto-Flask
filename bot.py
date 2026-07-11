@@ -48,22 +48,22 @@ def main():
         print(f"   GUI: ON  (close window to quit)")
     print("─" * 40)
 
-    auto.start()
-
     if use_gui:
         # GUI mode: launch Tkinter, keyboard toggle still works in background
+        _gui_alive = [True]
+
         def _key_watcher():
-            while auto._running or _gui_alive[0]:
-                if keyboard.is_pressed(KEY_TOGGLE):
+            while _gui_alive[0]:
+                if keyboard.is_pressed(KEY_TOGGLE) and gui.hotkey_enabled.get():
                     auto.toggle()
+                    gui.root.after(0, gui._sync_toggle_ui)
                     time.sleep(0.5)
                 time.sleep(0.05)
-
-        _gui_alive = [True]
 
         def _on_gui_close():
             _gui_alive[0] = False
             auto.stop()
+            gui._save_settings()
             gui.root.destroy()
 
         import poe2_ui
@@ -78,6 +78,7 @@ def main():
         gui.run()
     else:
         # CLI mode: keyboard toggle only
+        auto.start()
         try:
             while True:
                 if keyboard.is_pressed(KEY_TOGGLE):

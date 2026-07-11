@@ -139,7 +139,6 @@ def run_keyboard(mem: core.MemoryReader):
     from bot import KeyboardAutoManager, KEY_HP_FLASK, KEY_MANA_FLASK, KEY_TOGGLE
 
     auto = KeyboardAutoManager(mem)
-    auto.start()
 
     gui = Poe2GUI(mem=mem)
     gui.set_auto_manager(auto)
@@ -148,14 +147,16 @@ def run_keyboard(mem: core.MemoryReader):
 
     def _key_watcher():
         while _alive[0]:
-            if keyboard.is_pressed(KEY_TOGGLE):
+            if keyboard.is_pressed(KEY_TOGGLE) and gui.hotkey_enabled.get():
                 auto.toggle()
+                gui.root.after(0, gui._sync_toggle_ui)
                 time.sleep(0.5)
             time.sleep(0.05)
 
     def _on_close():
         _alive[0] = False
         auto.stop()
+        gui._save_settings()
         gui._running = False
         gui.root.destroy()
 
@@ -181,7 +182,6 @@ def run_controller(mem: core.MemoryReader):
 
     vctrl = VirtualController()
     auto = ControllerAutoManager(vctrl, mem)
-    auto.start()
 
     gui = Poe2GUI(mem=mem)
     gui.set_auto_manager(auto)
@@ -194,8 +194,9 @@ def run_controller(mem: core.MemoryReader):
         while _alive[0]:
             pygame.event.pump()
             lb = real_ctrl.get_button(BTN_TOGGLE_HP_AUTO)
-            if lb and not btn_hp_held:
+            if lb and not btn_hp_held and gui.hotkey_enabled.get():
                 auto.toggle()
+                gui.root.after(0, gui._sync_toggle_ui)
                 btn_hp_held = True
             elif not lb:
                 btn_hp_held = False
@@ -206,6 +207,7 @@ def run_controller(mem: core.MemoryReader):
     def _on_close():
         _alive[0] = False
         auto.stop()
+        gui._save_settings()
         pygame.quit()
         gui._running = False
         gui.root.destroy()
